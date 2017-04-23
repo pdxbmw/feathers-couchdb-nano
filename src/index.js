@@ -36,6 +36,8 @@ class Service {
 
   _find (params, getFilter = filter) {
     const db = this.db;
+    const design = this.Model;
+    const view = 'all'; // TODO: Determine how to create dynamically.
     const { filters, query } = getFilter(params.query || {});
 
     const options = {
@@ -44,7 +46,7 @@ class Service {
     };
 
     return new Promise((resolve, reject) => {
-      return db.view('patients', 'all', options, (err, body) => {
+      return db.view(design, view, options, (err, body) => {
         const rows = body.rows;
         const n = rows.length;
         let data = [];
