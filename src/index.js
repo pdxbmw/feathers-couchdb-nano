@@ -14,10 +14,6 @@ class Service {
       throw new Error('CouchDB options have to be provided')
     }
 
-    // if (!options.nano || !options.nano.use) {
-    //   throw new Error('You must provide a Apache CouchDB Nano database');
-    // }
-
     if (!options.db || !options.db.insert) {
       throw new Error('You must provide a Apache CouchDB Nano database');
     }
@@ -32,39 +28,16 @@ class Service {
     this.Model = options.Model.toString().toLowerCase();
     this.nano = options.nano;
     this.db = options.db;
-
-    // this.db = this._getOrCreateDb();
   }
 
   extend (obj) {
     return Proto.extend(obj, this);
   }
 
-  /**
-   * Get or create a database.
-   *
-   * NOTE: Currently not used.
-   */
-  _getOrCreateDb () {
-    const nano = this.nano;
-    const db = this.Model;
-
-    return new Promise((resolve, reject) => {
-      nano.db.create(db, function(err, body, header) {
-
-        // Reject all errors except existing database.
-        if (err && err.error !== FILE_EXISTS) {
-          return reject(err);
-        }
-
-        resolve(nano.use(db));
-      });
-    });
-  }
-
   _find (params, getFilter = filter) {
     const db = this.db;
     const { filters, query } = getFilter(params.query || {});
+
     const options = {
       limit: filters.$limit || paginate.default || 100,
       skip: filters.$skip || 0
