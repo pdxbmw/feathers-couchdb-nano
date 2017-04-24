@@ -6,9 +6,9 @@ import * as utils from './utils';
 const debug = makeDebug('feathers-couchdb-nano');
 
 // Variable constants.
+const DEFAULT_LIMIT = 100;
 const FILE_EXISTS = 'file_exists';
 const TYPE_KEY = '$type';
-
 
 class Service {
   constructor (options) {
@@ -45,8 +45,9 @@ class Service {
     }
 
     const [design, view] = query.q.split('/');
+    const paginate = query.paginate;
     const options = {
-      limit: filters.$limit || paginate.default || 100,
+      limit: filters.$limit || paginate && paginate.default || DEFAULT_LIMIT,
       skip: filters.$skip || 0
     };
 
@@ -102,14 +103,18 @@ class Service {
     const paginate = params && typeof params.paginate !== 'undefined' ? params.paginate : this.paginate;
     const result = this._find(params, where => filter(where, paginate));
 
-    return result.then(result => {
-      return {
-        total: result.total,
-        limit: result.limit,
-        skip: result.skip,
-        data: result.data
-      };
-    }).catch(utils.errorHandler);
+    return result
+      .then(result => {
+        return paginate && typeof paginate.default === 'number' ?
+          {
+            total: result.total,
+            limit: result.limit,
+            skip: result.skip,
+            data: result.data
+          } :
+          result.data;
+      })
+      .catch(utils.errorHandler);
   }
 
   _get (id, params) {
@@ -139,7 +144,9 @@ class Service {
   get (id, params) {
     const result = this._get(id);
 
-    return result.then(result => result).catch(utils.errorHandler);
+    return result
+      .then(result => result)
+      .catch(utils.errorHandler);
   }
 
   _create (data) {
@@ -167,7 +174,11 @@ class Service {
   }
 
   update(id, data, params) {}
-  patch(id, data, params) {}
+
+  patch (id, data, params) {
+
+  }
+
   remove(id, params) {}
   setup(app, path) {}
 }
