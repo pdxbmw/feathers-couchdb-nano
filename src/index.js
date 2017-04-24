@@ -1,5 +1,6 @@
 import Proto from 'uberproto';
 import makeDebug from 'debug';
+import errors from 'feathers-errors';
 import filter from 'feathers-query-filters';
 import * as utils from './utils';
 
@@ -24,12 +25,11 @@ class Service {
       throw new Error('You must provide a CouchDB Model name')
     }
 
+    this.db = options.db;
     this.id = options.id || '_id';
     this.events = options.events || [];
     this.paginate = options.paginate || {};
     this.model = options.Model.toString().toLowerCase();
-    this.nano = options.nano;
-    this.db = options.db;
   }
 
   extend (obj) {
@@ -39,15 +39,14 @@ class Service {
   _find (params, getFilter = filter) {
     const db = this.db;
     const { filters, query } = getFilter(params.query || {});
-    let [design, view] = query.q && query.q.split('/');
-    let pg = query.paginate;
-    let options;
+    let [design, view] = this._getDesignView(query.q);
 
     if (!design || !view) {
       throw new Error('You must provide a design document using the query `q` property');
     }
 
-    options = {
+    let pg = query.paginate;
+    let options = {
       limit: filters.$limit || pg && pg.default || DEFAULT_LIMIT,
       skip: filters.$skip || 0
     };
@@ -76,11 +75,7 @@ class Service {
           }
           else {
             tmp = Object.assign(tmp, item);
-
-            tmp.id = tmp._id;
-
-            delete tmp._id;
-            delete tmp._rev;
+            tmp = this._formatIdForFeathers(tmp);
             delete tmp[TYPE_KEY];
           }
 
@@ -129,10 +124,7 @@ class Service {
           return reject(err);
         }
 
-        data.id = data._id;
-
-        delete data._id;
-        delete data._rev;
+        data = this._formatIdForFeathers(data);
         delete data[TYPE_KEY];
 
         resolve(data);
@@ -150,9 +142,10 @@ class Service {
       .catch(utils.errorHandler);
   }
 
-  _create (data) {
+  _insert (data) {
     const db = this.db;
 
+    data = this._formatIdForCouch(data);
     data[TYPE_KEY] = this.model;
 
     return new Promise((resolve, reject) => {
@@ -169,19 +162,69 @@ class Service {
   }
 
   create (data, params) {
-    const result = this._create(data);
+    const result = this._insert(data);
 
     return result.catch(utils.errorHandler);
   }
 
-  update(id, data, params) {}
+  update(id, data, params) {
+
+    if (Array.isArray(data)) {
+      return Promise.reject(new errors.BadRequest('Not replacing multiple records. Did you mean `patch`?'));
+    }
+  }
+
+  _patch (id, data, params) {
+    const db = this.db;
+
+    // TODO: Should the _rev key be included in find and get, or should a
+    //       lookup-by-id be performed before an update? Wouldn't a lookup
+    //       potentially return a newer _rev token?
+    if (!data._rev || !data[this.id]) {
+      return Promise.reject(new errors.BadRequest('Missing document `_rev` or `_id` key.'));
+    }
+
+    return this._insert(data);
+  }
 
   patch (id, data, params) {
+    const result = this._patch(id, data);
 
+    return result.catch(utils.errorHandler);
   }
 
   remove(id, params) {}
   setup(app, path) {}
+
+
+  /////////////////////
+  // Helpers
+
+  _getDesignView (q) {
+    const parts = q && q.split('/');
+    const len = parts && parts.length;
+    return [len > 0 && parts[0], len > 1 && parts[1]];
+  }
+
+  _formatIdForFeathers (obj) {
+    const id = obj._id;
+
+    delete obj.id;
+    delete obj._id;
+
+    obj[this.id] = id;
+
+    return obj;
+  }
+
+  _formatIdForCouch (obj) {
+    const id = obj[this.id];
+
+    delete obj.id;
+    obj._id = id;
+
+    return obj;
+  }
 }
 
 
