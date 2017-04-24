@@ -122,8 +122,6 @@ class Service {
           return reject(err);
         }
 
-        data = this._formatForFeathers(data);
-
         resolve(data);
       };
 
@@ -135,7 +133,7 @@ class Service {
     const result = this._get(id);
 
     return result
-      .then(result => result)
+      .then(data => this._formatForFeathers(data))
       .catch(utils.errorHandler);
   }
 
@@ -170,7 +168,7 @@ class Service {
     }
   }
 
-  _patch (id, data, params) {
+  patch (id, data, params) {
     const db = this.db;
 
     // TODO: Should the _rev key be included in find and get, or should a
@@ -180,16 +178,38 @@ class Service {
       return Promise.reject(new errors.BadRequest('Missing document `_rev` or `_id` key.'));
     }
 
-    return this._insert(data);
+    return this._insert(data).catch(utils.errorHandler);
   }
 
-  patch (id, data, params) {
-    const result = this._patch(id, data);
+  _remove(id, rev, params) {
+    const db = this.db;
 
-    return result.catch(utils.errorHandler);
+    if (!id || !rev) {
+      return Promise.reject(new errors.BadRequest('Missing document `_rev` or `_id` key.'));
+    }
+
+    return new Promise((resolve, reject) => {
+      const callback = (err, body) => {
+        if (err) {
+          return reject(err);
+        }
+
+        resolve(body);
+      };
+
+      return db.destroy(id, rev, callback);
+    });
   }
 
-  remove(id, params) {}
+  remove(id, params) {
+    return this._get(id)
+      .then(data => this._remove(
+        data._id,
+        data._rev
+      ))
+      .catch(utils.errorHandler);
+  }
+
   setup(app, path) {}
 
 
