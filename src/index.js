@@ -5,7 +5,9 @@ import * as utils from './utils';
 
 const debug = makeDebug('feathers-couchdb-nano');
 
+// Variable constants.
 const FILE_EXISTS = 'file_exists';
+const TYPE_KEY = '$type';
 
 
 class Service {
@@ -25,7 +27,7 @@ class Service {
     this.id = options.id || '_id';
     this.events = options.events || [];
     this.paginate = options.paginate || {};
-    this.Model = options.Model.toString().toLowerCase();
+    this.model = options.Model.toString().toLowerCase();
     this.nano = options.nano;
     this.db = options.db;
   }
@@ -60,24 +62,27 @@ class Service {
 
         for (let i = 0; i < n; i++) {
           const item = rows[i].key;
-          const select = filters.$select;
-          const m = select && Array.isArray(select) && select.length;
+          const sel = filters.$select;
+          let j = sel && Array.isArray(sel) && sel.length;
+          let tmp = {};
 
-          data[i] = item;
-          data[i].id = item._id;
-
-          delete data[i]._id;
-          delete data[i]._rev;
-
-          if (m && m.length > 0) {
-            let tmp = {};
-
-            for (let j = 0; j < m; j++) {
-              tmp[select[j]] = rows[i][select[j]];
+          // Filtered select query.
+          if (j && j.length > 0) {
+            while (j--) {
+              tmp[sel[j]] = rows[i][sel[j]];
             }
-
-            data[i] = tmp;
           }
+          else {
+            tmp = Object.assign(tmp, item);
+
+            tmp.id = tmp._id;
+
+            delete tmp._id;
+            delete tmp._rev;
+            delete tmp[TYPE_KEY];
+          }
+
+          data[i] = tmp;
         }
 
         resolve({
@@ -107,12 +112,40 @@ class Service {
     }).catch(utils.errorHandler);
   }
 
-  get(id, params) {}
+  _get (id, params) {
+    const db = this.db;
+
+    return new Promise((resolve, reject) => {
+      const callback = (err, body) => {
+        let data = Object.assign({}, body);
+
+        if (err) {
+          return reject(err);
+        }
+
+        data.id = data._id;
+
+        delete data._id;
+        delete data._rev;
+        delete data[TYPE_KEY];
+
+        resolve(data);
+      };
+
+      return db.get(id, callback);
+    });
+  }
+
+  get (id, params) {
+    const result = this._get(id);
+
+    return result.then(result => result).catch(utils.errorHandler);
+  }
 
   _create (data) {
     const db = this.db;
 
-    data.type = this.Model;
+    data[TYPE_KEY] = this.model;
 
     return new Promise((resolve, reject) => {
       const callback = (err, body) => {
@@ -120,7 +153,7 @@ class Service {
           return reject(err);
         }
 
-        resolve(data);
+        resolve(body);
       };
 
       return db.insert(data, callback);
