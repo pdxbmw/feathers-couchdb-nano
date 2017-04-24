@@ -36,17 +36,22 @@ class Service {
 
   _find (params, getFilter = filter) {
     const db = this.db;
-    const design = this.Model;
-    const view = 'all'; // TODO: Determine how to create dynamically.
     const { filters, query } = getFilter(params.query || {});
 
+    debug(filters, query);
+
+    if (!query.q) {
+      throw new Error('You must provide a design document using the query `q` property');
+    }
+
+    const [design, view] = query.q.split('/');
     const options = {
       limit: filters.$limit || paginate.default || 100,
       skip: filters.$skip || 0
     };
 
     return new Promise((resolve, reject) => {
-      return db.view(design, view, options, (err, body) => {
+      const callback = (err, body) => {
         const rows = body.rows;
         const n = rows.length;
         let data = [];
@@ -84,13 +89,13 @@ class Service {
           limit: options.limit,
           data: data
         });
-      });
+      };
+
+      return db.view(design, view, options, callback);
     });
   }
 
-  // Boilerplate
   find (params) {
-    const db = this.db;
     const paginate = params && typeof params.paginate !== 'undefined' ? params.paginate : this.paginate;
     const result = this._find(params, where => filter(where, paginate));
 
@@ -105,7 +110,31 @@ class Service {
   }
 
   get(id, params) {}
-  create(data, params) {}
+
+  _create (data) {
+    const db = this.db;
+
+    data.type = this.Model;
+
+    return new Promise((resolve, reject) => {
+      const callback = (err, body) => {
+        if (err) {
+          return reject(err);
+        }
+
+        resolve(data);
+      };
+
+      return db.insert(data, callback);
+    });
+  }
+
+  create (data, params) {
+    const result = this._create(data);
+
+    return result.catch(utils.errorHandler);
+  }
+
   update(id, data, params) {}
   patch(id, data, params) {}
   remove(id, params) {}
