@@ -38,8 +38,6 @@ class Service {
     const db = this.db;
     const { filters, query } = getFilter(params.query || {});
 
-    debug(filters, query);
-
     if (!query.q) {
       throw new Error('You must provide a design document using the query `q` property');
     }
