@@ -39,15 +39,16 @@ class Service {
   _find (params, getFilter = filter) {
     const db = this.db;
     const { filters, query } = getFilter(params.query || {});
+    let [design, view] = query.q && query.q.split('/');
+    let pg = query.paginate;
+    let options;
 
-    if (!query.q) {
+    if (!design || !view) {
       throw new Error('You must provide a design document using the query `q` property');
     }
 
-    const [design, view] = query.q.split('/');
-    const paginate = query.paginate;
-    const options = {
-      limit: filters.$limit || paginate && paginate.default || DEFAULT_LIMIT,
+    options = {
+      limit: filters.$limit || pg && pg.default || DEFAULT_LIMIT,
       skip: filters.$skip || 0
     };
 
