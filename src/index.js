@@ -75,11 +75,9 @@ class Service {
           }
           else {
             tmp = Object.assign(tmp, item);
-            tmp = this._formatIdForFeathers(tmp);
-            delete tmp[TYPE_KEY];
           }
 
-          data[i] = tmp;
+          data[i] = this._formatForFeathers(tmp);
         }
 
         resolve({
@@ -124,8 +122,7 @@ class Service {
           return reject(err);
         }
 
-        data = this._formatIdForFeathers(data);
-        delete data[TYPE_KEY];
+        data = this._formatForFeathers(data);
 
         resolve(data);
       };
@@ -145,8 +142,7 @@ class Service {
   _insert (data) {
     const db = this.db;
 
-    data = this._formatIdForCouch(data);
-    data[TYPE_KEY] = this.model;
+    data = this._formatForCouch(data);
 
     return new Promise((resolve, reject) => {
       const callback = (err, body) => {
@@ -206,21 +202,24 @@ class Service {
     return [len > 0 && parts[0], len > 1 && parts[1]];
   }
 
-  _formatIdForFeathers (obj) {
+  _formatForFeathers (obj) {
     const id = obj._id;
 
     delete obj.id;
     delete obj._id;
+    delete obj[TYPE_KEY];
 
     obj[this.id] = id;
 
     return obj;
   }
 
-  _formatIdForCouch (obj) {
+  _formatForCouch (obj) {
     const id = obj[this.id];
 
     delete obj.id;
+
+    obj[TYPE_KEY] = this.model;
     obj._id = id;
 
     return obj;
