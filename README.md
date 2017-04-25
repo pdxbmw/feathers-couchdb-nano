@@ -17,8 +17,12 @@ npm install feathers-couchdb-nano --save
 
 ## Documentation
 
-* [Feathers documentation](http://docs.feathersjs.com/).
-* [Apache Couchdb Nano documentation](https://github.com/apache/couchdb-nano).
+- [Apache Couchdb Nano](https://github.com/apache/couchdb-nano) - The details of the underlying database driver
+- [Extending](http://docs.feathersjs.com/databases/extending.html) - How to extend a database adapter
+- [Pagination and Sorting](http://docs.feathersjs.com/databases/pagination.html) - How to use pagination and sorting for the database adapter
+- [Querying](http://docs.feathersjs.com/databases/querying.html) - The common adapter querying mechanism
+
+Please refer to the [Feathers database adapter documentation](http://docs.feathersjs.com/databases/readme.html) for more general details.
 
 ## Options
 
@@ -41,6 +45,21 @@ const hooks = require('feathers-hooks');
 const bodyParser = require('body-parser');
 const errorHandler = require('feathers-errors/handler');
 const plugin = require('feathers-couchdb-nano');
+const nano = require('nano');
+
+// Connect to existing database "demo"
+const db = nano('http://localhost:5984/demo');
+
+// Specify the plugin options
+const options = {
+  db: db,
+  id: 'id',
+  name: 'messages',
+  paginate: {
+    default: 10,
+    max: 25
+  }
+};
 
 // Initialize the application
 const app = feathers()
@@ -49,8 +68,8 @@ const app = feathers()
   // Needed for parsing bodies (login)
   .use(bodyParser.json())
   .use(bodyParser.urlencoded({ extended: true }))
-  // Initialize your feathers plugin
-  .use('/plugin', plugin())
+  // Initialize the feathers plugin
+  .use('/plugin', plugin(options))
   .use(errorHandler());
 
 app.listen(3030);
@@ -60,6 +79,6 @@ console.log('Feathers app started on 127.0.0.1:3030');
 
 ## License
 
-Copyright (c) 2016
+Copyright (c) 2017
 
 Licensed under the [MIT license](LICENSE).
