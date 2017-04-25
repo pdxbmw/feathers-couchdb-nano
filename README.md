@@ -8,6 +8,7 @@
 
 > Feathers CouchDB adapter service using Apache CouchDB Nano.
 
+
 ## Installation
 
 ```
@@ -16,7 +17,8 @@ npm install feathers-couchdb-nano --save
 
 ## Documentation
 
-Please refer to the [feathers-couchdb-nano documentation](http://docs.feathersjs.com/) for more details.
+* [Feathers documentation](http://docs.feathersjs.com/).
+* [Apache Couchdb Nano documentation](https://github.com/apache/couchdb-nano).
 
 ## Options
 
@@ -25,8 +27,8 @@ Please refer to the [feathers-couchdb-nano documentation](http://docs.feathersjs
 | **db**        | Object  | Instance of CouchDB Nano database.                            |
 | **events**    | Array   | List of custom service events sent by this service.           |
 | **id**        | String  | Name of id field property (defaults to `_id`).                |
+| **name**      | String  | Name of CouchDB document type.                                |
 | **paginate**  | Object  | Pagination object containing `default` and `max` page size.   |
-| **type**      | String  | Name of CouchDB document type.                                |
 
 ## Complete Example
 

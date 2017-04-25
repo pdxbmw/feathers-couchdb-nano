@@ -1,35 +1,30 @@
 import Proto from 'uberproto';
-import makeDebug from 'debug';
 import errors from 'feathers-errors';
 import filter from 'feathers-query-filters';
 import * as utils from './utils';
 
-const debug = makeDebug('feathers-couchdb-nano');
 
-// Variable constants.
 const DEFAULT_LIMIT = 100;
-const FILE_EXISTS = 'file_exists';
+const DEFAULT_SKIP = 0;
 const TYPE_KEY = '$type';
 
+
 class Service {
-  constructor (options) {
-    if (!options) {
-      throw new Error('CouchDB options have to be provided')
-    }
+  constructor (options = {}) {
 
     if (!options.db || !options.db.insert) {
-      throw new Error('You must provide a Apache CouchDB Nano database');
+      throw new Error('You must provide an Apache CouchDB Nano database');
     }
 
-    if (!options.Model) {
-      throw new Error('You must provide a CouchDB Model name')
+    if (!options.name) {
+      throw new Error('You must provide a CouchDB document type name');
     }
 
     this.db = options.db;
-    this.id = options.id || '_id';
     this.events = options.events || [];
+    this.id = options.id || '_id';
+    this.name = options.name.toLowerCase();
     this.paginate = options.paginate || {};
-    this.model = options.Model.toString().toLowerCase();
   }
 
   extend (obj) {
@@ -42,13 +37,15 @@ class Service {
     let [design, view] = this._getDesignView(query.q);
 
     if (!design || !view) {
-      throw new Error('You must provide a design document using the query `q` property');
+      throw new Error(
+        'You must provide a design document using the query "q" property'
+      );
     }
 
     let pg = query.paginate;
     let options = {
-      limit: filters.$limit || pg && pg.default || DEFAULT_LIMIT,
-      skip: filters.$skip || 0
+      limit: filters.$limit || (pg && pg.default) || DEFAULT_LIMIT,
+      skip: filters.$skip || DEFAULT_SKIP
     };
 
     return new Promise((resolve, reject) => {
@@ -72,8 +69,7 @@ class Service {
             while (j--) {
               tmp[sel[j]] = rows[i][sel[j]];
             }
-          }
-          else {
+          } else {
             tmp = Object.assign(tmp, item);
           }
 
@@ -81,11 +77,11 @@ class Service {
         }
 
         resolve({
+          data,
           /* jshint camelcase: false */
           total: body.total_rows,
           skip: body.offset,
           limit: options.limit,
-          data: data
         });
       };
 
@@ -93,21 +89,12 @@ class Service {
     });
   }
 
-  find (params) {
-    const paginate = params && typeof params.paginate !== 'undefined' ? params.paginate : this.paginate;
+  find (params = {}) {
+    const paginate = typeof params.paginate !== 'undefined' ? params.paginate : this.paginate;
     const result = this._find(params, where => filter(where, paginate));
 
     return result
-      .then(result => {
-        return paginate && typeof paginate.default === 'number' ?
-          {
-            total: result.total,
-            limit: result.limit,
-            skip: result.skip,
-            data: result.data
-          } :
-          result.data;
-      })
+      .then(page => paginate.default ? page : page.data)
       .catch(utils.errorHandler);
   }
 
@@ -161,31 +148,33 @@ class Service {
     return result.catch(utils.errorHandler);
   }
 
-  update(id, data, params) {
+  update (id, data, params) {
 
     if (Array.isArray(data)) {
-      return Promise.reject(new errors.BadRequest('Not replacing multiple records. Did you mean `patch`?'));
+      return Promise.reject(new errors.BadRequest(
+        'Not replacing multiple records. Did you mean `patch`?'
+      ));
     }
   }
 
   patch (id, data, params) {
-    const db = this.db;
 
-    // TODO: Should the _rev key be included in find and get, or should a
-    //       lookup-by-id be performed before an update? Wouldn't a lookup
-    //       potentially return a newer _rev token?
     if (!data._rev || !data[this.id]) {
-      return Promise.reject(new errors.BadRequest('Missing document `_rev` or `_id` key.'));
+      return Promise.reject(new errors.BadRequest(
+        'Missing document `_rev` or `_id` key.'
+      ));
     }
 
     return this._insert(data).catch(utils.errorHandler);
   }
 
-  _remove(id, rev, params) {
+  _remove (id, rev, params) {
     const db = this.db;
 
     if (!id || !rev) {
-      return Promise.reject(new errors.BadRequest('Missing document `_rev` or `_id` key.'));
+      return Promise.reject(new errors.BadRequest(
+        'Missing document `_rev` or `_id` key.'
+      ));
     }
 
     return new Promise((resolve, reject) => {
@@ -201,16 +190,13 @@ class Service {
     });
   }
 
-  remove(id, params) {
+  remove (id, params) {
     return this._get(id)
-      .then(data => this._remove(
-        data._id,
-        data._rev
-      ))
+      .then(data => this._remove(data._id, data._rev))
       .catch(utils.errorHandler);
   }
 
-  setup(app, path) {}
+  setup (app, path) {}
 
 
   /////////////////////
@@ -219,7 +205,11 @@ class Service {
   _getDesignView (q) {
     const parts = q && q.split('/');
     const len = parts && parts.length;
-    return [len > 0 && parts[0], len > 1 && parts[1]];
+
+    return [
+      len > 0 && parts[0],
+      len > 1 && parts[1]
+    ];
   }
 
   _formatForFeathers (obj) {
@@ -239,13 +229,12 @@ class Service {
 
     delete obj.id;
 
-    obj[TYPE_KEY] = this.model;
+    obj[TYPE_KEY] = this.name;
     obj._id = id;
 
     return obj;
   }
 }
-
 
 export default function init (options) {
   return new Service(options);

@@ -1,12 +1,19 @@
 {
   "name": "feathers-couchdb-nano",
-  "description": "Feathers CouchDB adapter service using Apache CouchDB Nano.",
+  "description": "Feathers CouchDB adapter service using Apache CouchDB Nano driver.",
   "version": "0.0.0",
   "homepage": "https://github.com/pdxbmw/feathers-couchdb-nano",
   "main": "lib/",
   "keywords": [
     "feathers",
-    "feathers-plugin"
+    "feathers-plugin",
+    "rest",
+    "socket.io",
+    "realtime",
+    "nano",
+    "couch",
+    "couchdb",
+    "service"
   ],
   "license": "MIT",
   "repository": {
@@ -18,7 +25,13 @@
     "email": "hello@feathersjs.com",
     "url": "https://feathersjs.com"
   },
-  "contributors": [],
+  "contributors": [
+    {
+      "name": "Andi Wilson",
+      "email": "pdxbmw@gmail.com",
+      "url": "http://motua.com"
+    }
+  ],
   "bugs": {
     "url": "https://github.com/pdxbmw/feathers-couchdb-nano/issues"
   },
@@ -61,6 +74,7 @@
     "chai": "^3.5.0",
     "istanbul": "^1.1.0-alpha.1",
     "mocha": "^3.2.0",
+    "nano": "^6.2.0",
     "semistandard": "^11.0.0",
     "shx": "^0.2.2"
   }
