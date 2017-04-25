@@ -20,13 +20,13 @@ Please refer to the [feathers-couchdb-nano documentation](http://docs.feathersjs
 
 ## Options
 
-| Name        | Type    | Description                                                   |
-| ----------- | ------- | --------------------------------------------------------------|
-| *db*        | Object  | Instance of CouchDB Nano database.                            |
-| *events*    | Array   | List of custom service events sent by this service.           |
-| *id*        | String  | Name of id field property (defaults to `_id`).                |
-| *paginate*  | Object  | Pagination object containing `default` and `max` page size.   |
-| *type*      | String  | Name of CouchDB document type.                                |
+| Name          | Type    | Description                                                   |
+| ------------- | ------- | --------------------------------------------------------------|
+| **db**        | Object  | Instance of CouchDB Nano database.                            |
+| **events**    | Array   | List of custom service events sent by this service.           |
+| **id**        | String  | Name of id field property (defaults to `_id`).                |
+| **paginate**  | Object  | Pagination object containing `default` and `max` page size.   |
+| **type**      | String  | Name of CouchDB document type.                                |
 
 ## Complete Example
 
