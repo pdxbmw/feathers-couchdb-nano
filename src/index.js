@@ -34,10 +34,8 @@ class Service {
   _find (params, getFilter = filter) {
     const db = this.db;
     const { filters, query } = getFilter(params.query || {});
-
-    // TODO: Improve method for getting doc design view. Consider creating
-    //       view if provided path doesn't exist.
     let [design, view] = this._getDesignView(query.q);
+
     if (!design || !view) {
       throw new Error(
         'You must provide a design document using the query "q" property'
