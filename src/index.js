@@ -3,15 +3,15 @@ import errors from 'feathers-errors';
 import filter from 'feathers-query-filters';
 import * as utils from './utils';
 
+// import makeDebug from 'debug';
+// const debug = makeDebug('feathers-couchdb-nano');
 
 const DEFAULT_LIMIT = 100;
 const DEFAULT_SKIP = 0;
 const TYPE_KEY = '$type';
 
-
 class Service {
   constructor (options = {}) {
-
     if (!options.db || !options.db.insert) {
       throw new Error('You must provide an Apache CouchDB Nano database');
     }
@@ -34,8 +34,10 @@ class Service {
   _find (params, getFilter = filter) {
     const db = this.db;
     const { filters, query } = getFilter(params.query || {});
-    let [design, view] = this._getDesignView(query.q);
 
+    // TODO: Improve method for getting doc design view. Consider creating
+    //       view if provided path doesn't exist.
+    let [design, view] = this._getDesignView(query.q);
     if (!design || !view) {
       throw new Error(
         'You must provide a design document using the query "q" property'
@@ -81,7 +83,7 @@ class Service {
           /* jshint camelcase: false */
           total: body.total_rows,
           skip: body.offset,
-          limit: options.limit,
+          limit: options.limit
         });
       };
 
@@ -149,7 +151,6 @@ class Service {
   }
 
   update (id, data, params) {
-
     if (Array.isArray(data)) {
       return Promise.reject(new errors.BadRequest(
         'Not replacing multiple records. Did you mean `patch`?'
@@ -158,7 +159,6 @@ class Service {
   }
 
   patch (id, data, params) {
-
     if (!data._rev || !data[this.id]) {
       return Promise.reject(new errors.BadRequest(
         'Missing document `_rev` or `_id` key.'
@@ -198,8 +198,7 @@ class Service {
 
   setup (app, path) {}
 
-
-  /////////////////////
+  /// //////////////////
   // Helpers
 
   _getDesignView (q) {

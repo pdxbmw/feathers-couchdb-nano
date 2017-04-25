@@ -2,7 +2,6 @@ import errors from 'feathers-errors';
 
 // https://github.com/feathersjs/feathers-errors
 export function errorHandler (error) {
-
   switch (error.name) {
     case 'CouchError':
       if (error.code === 404 || error.headers.status === 404) {
