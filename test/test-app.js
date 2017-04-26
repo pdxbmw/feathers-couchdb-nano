@@ -1,20 +1,21 @@
+import { DOC_NAME, DB_NAME, DB_URI } from './constants';
 import feathers from 'feathers';
 import rest from 'feathers-rest';
+import nano from 'nano';
 import errorHandler from 'feathers-errors/handler';
 import bodyParser from 'body-parser';
-import nano from 'nano';
 import plugin from '../src';
 
-export default new Promise(function (resolve) {
-  const cxn = nano('http://localhost:5984');
+export default new Promise((resolve) => {
+  const cxn = nano(DB_URI);
 
-  const callback = function () {
+  cxn.db.create(DB_NAME, () => {
     const options = {
-      db: cxn.use('test'),
-      name: 'tests',
+      db: cxn.use(DB_NAME),
+      name: DOC_NAME,
       paginate: {
-        default: 10,
-        max: 25
+        default: 2,
+        max: 4
       }
     };
 
@@ -25,14 +26,11 @@ export default new Promise(function (resolve) {
       .use(options.name, plugin(options))
       .use(errorHandler());
 
-    const server = app.listen(3007);
+    const server = app.listen(3333);
 
-    server.on('listening', function () {
-      console.log('Feathers CouchDB Nano service running on 127.0.0.1:3007');
-
+    server.on('listening', () => {
+      console.log('Feathers CouchDB Nano service running on 127.0.0.1:3333');
       resolve(server);
     });
-  };
-
-  cxn.db.create('test', callback);
+  });
 });

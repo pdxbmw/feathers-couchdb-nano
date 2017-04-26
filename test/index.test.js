@@ -1,14 +1,15 @@
 import { expect } from 'chai';
 import { createServer } from 'mock-couch';
+import { DOC_NAME, DB_NAME, DB_URI, DB_PORT } from './constants';
+import feathers from 'feathers';
 import nano from 'nano';
 import plugin from '../src';
 import server from './test-app';
 
-const DB_NAME = 'testdb';
-const DB_PORT = 5985;
-
 describe('feathers-couchdb-nano', () => {
-  const cxn = nano('http://localhost:${DB_PORT}');
+  const app = feathers();
+  const cxn = nano(DB_URI);
+
   let db;
 
   before(() => {
@@ -20,19 +21,21 @@ describe('feathers-couchdb-nano', () => {
         _id: '1',
         firstName: 'one name',
         lastName: 'one lastname',
-        '$type': 'patients'
+        '$type': DOC_NAME
       },
       {
         _id: '2',
         firstName: 'second name',
         lastName: 'second lastname',
-        '$type': 'patients'
+        '$type': DOC_NAME
       }
     ]);
 
     return new Promise((resolve) => {
       cxn.db.create(DB_NAME, () => {
         db = cxn.use(DB_NAME);
+        app.service(DOC_NAME, plugin({ db: db, name: DOC_NAME }));
+
         resolve();
       });
     });
@@ -67,18 +70,43 @@ describe('feathers-couchdb-nano', () => {
 
     describe('when missing options.paginate', () => {
       it('sets the default to an empty object', () => {
-        expect(plugin({ db: db, name: 'tests' }).paginate).to.deep.equal({});
+        expect(plugin({ db: db, name: DOC_NAME }).paginate).to.deep.equal({});
       });
     });
 
     describe('when missing options.events', () => {
       it('sets the default to an empty array', () => {
-        expect(plugin({ db: db, name: 'tests' }).events).to.deep.equal([]);
+        expect(plugin({ db: db, name: DOC_NAME }).events).to.deep.equal([]);
+      });
+    });
+
+    describe('when options.db provided', () => {
+      it('should be equal to db', () => {
+        expect(plugin({ db: db, name: DOC_NAME }).db).to.deep.equal(db);
+      });
+    });
+
+    describe('when options.name provided', () => {
+      it('should be equal to DOC_NAME', () => {
+        expect(plugin({ db: db, name: DOC_NAME }).name).to.equal(DOC_NAME);
       });
     });
   });
 
-  describe('CouchDB plugin test app', () => {
+  describe('example CouchDB service app', () => {
     before(() => server);
+
+    after(done => {
+      server.then(s => s.close(() => done()));
+    });
+
+    describe('finds all documents', () => {
+      describe('when missing document design view params.query.q', () => {
+        it('throws an error', () => {
+          const svc = app.service(DOC_NAME);
+          expect(svc.find.bind(svc)).to.throw('You must provide a design document using the query "q" property');
+        });
+      });
+    });
   });
 });
