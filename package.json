@@ -74,6 +74,7 @@
     "chai": "^3.5.0",
     "istanbul": "^1.1.0-alpha.1",
     "mocha": "^3.2.0",
+    "mock-couch": "^0.1.8",
     "nano": "^6.2.0",
     "semistandard": "^11.0.0",
     "shx": "^0.2.2"
