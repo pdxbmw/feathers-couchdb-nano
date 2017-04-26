@@ -4,6 +4,7 @@ import { DOC_NAME, DB_NAME, DB_URI, DB_PORT } from './constants';
 import feathers from 'feathers';
 import nano from 'nano';
 import plugin from '../src';
+import msgs from '../src/msgs';
 import server from './test-app';
 
 describe('feathers-couchdb-nano', () => {
@@ -52,13 +53,13 @@ describe('feathers-couchdb-nano', () => {
   describe('initialization', () => {
     describe('when missing options.db', () => {
       it('throws an error', () => {
-        expect(plugin.bind(null)).to.throw('You must provide an Apache CouchDB Nano database');
+        expect(plugin.bind(null)).to.throw(msgs.DB_REQUIRED);
       });
     });
 
     describe('when missing options.name', () => {
       it('throws an error', () => {
-        expect(plugin.bind(null, { db: db })).to.throw('You must provide a CouchDB document type name');
+        expect(plugin.bind(null, { db: db })).to.throw(msgs.NAME_REQUIRED);
       });
     });
 
@@ -104,7 +105,7 @@ describe('feathers-couchdb-nano', () => {
       describe('when missing document design view params.query.q', () => {
         it('throws an error', () => {
           const svc = app.service(DOC_NAME);
-          expect(svc.find.bind(svc)).to.throw('You must provide a design document using the query "q" property');
+          expect(svc.find.bind(svc)).to.throw(msgs.VIEW_REQUIRED);
         });
       });
     });

@@ -1,6 +1,7 @@
 import Proto from 'uberproto';
 import errors from 'feathers-errors';
 import filter from 'feathers-query-filters';
+import * as msgs from './msgs';
 import * as utils from './utils';
 
 // import makeDebug from 'debug';
@@ -13,17 +14,15 @@ const TYPE_KEY = '$type';
 class Service {
   constructor (options = {}) {
     if (!options.db || !options.db.insert) {
-      throw new Error('You must provide an Apache CouchDB Nano database');
+      throw new Error(msgs.DB_REQUIRED);
     }
 
     if (!options.name) {
-      throw new Error('You must provide a CouchDB document type name');
+      throw new Error(msgs.NAME_REQUIRED);
     }
 
     this.db = options.db;
     this.name = options.name.toString().toLowerCase();
-
-    // Optional.
     this.events = options.events || [];
     this.id = options.id || '_id';
     this.paginate = options.paginate || {};
@@ -36,22 +35,18 @@ class Service {
   _find (params, getFilter = filter) {
     const db = this.db;
     const { filters, query } = getFilter(params.query || {});
-    let [design, view] = this._getDesignView(query.q);
-
-    if (!design || !view) {
-      throw new Error(
-        'You must provide a design document using the query "q" property'
-      );
-    }
-
-    let pg = query.paginate;
-    let options = {
-      limit: filters.$limit || (pg && pg.default) || DEFAULT_LIMIT,
+    const [design, view] = this._getDesignView(query.q);
+    const options = {
+      limit: filters.$limit || (query.paginate || {}).default || DEFAULT_LIMIT,
       skip: filters.$skip || DEFAULT_SKIP
     };
 
+    if (!design || !view) {
+      throw new Error(msgs.VIEW_REQUIRED);
+    }
+
     return new Promise((resolve, reject) => {
-      const callback = (err, body) => {
+      return db.view(design, view, options, (err, body) => {
         const rows = body.rows;
         const n = rows.length;
         let data = [];
@@ -85,18 +80,22 @@ class Service {
           skip: body.offset,
           limit: options.limit
         });
-      };
-
-      return db.view(design, view, options, callback);
+      });
     });
   }
 
   find (params = {}) {
-    const paginate = typeof params.paginate !== 'undefined' ? params.paginate : this.paginate;
+    const paginate = params.paginate || this.paginate;
     const result = this._find(params, where => filter(where, paginate));
 
     return result
-      .then(page => paginate.default ? page : page.data)
+      .then(page => {
+        if (paginate.default) {
+          return page;
+        }
+
+        return page.data;
+      })
       .catch(utils.errorHandler);
   }
 
@@ -104,7 +103,7 @@ class Service {
     const db = this.db;
 
     return new Promise((resolve, reject) => {
-      const callback = (err, body) => {
+      return db.get(id, (err, body) => {
         let data = Object.assign({}, body);
 
         if (err) {
@@ -112,87 +111,73 @@ class Service {
         }
 
         resolve(data);
-      };
-
-      return db.get(id, callback);
+      });
     });
   }
 
   get (id, params) {
-    const result = this._get(id);
-
-    return result
-      .then(data => this._formatForFeathers(data))
+    return this._get(id)
+      .then(this._formatForFeathers)
       .catch(utils.errorHandler);
   }
 
   _insert (data) {
     const db = this.db;
 
-    data = this._formatForCouch(data);
-
     return new Promise((resolve, reject) => {
-      const callback = (err, body) => {
+      return db.insert(this._formatForCouch(data), (err, body) => {
         if (err) {
           return reject(err);
         }
 
         resolve(body);
-      };
-
-      return db.insert(data, callback);
+      });
     });
   }
 
   create (data, params) {
-    const result = this._insert(data);
-
-    return result.catch(utils.errorHandler);
+    return this._insert(data)
+      .catch(utils.errorHandler);
   }
 
   update (id, data, params) {
-    if (Array.isArray(data)) {
-      return Promise.reject(new errors.BadRequest(
-        'Not replacing multiple records. Did you mean `patch`?'
-      ));
+    if (!Array.isArray(data)) {
+      return Promise.reject(new errors.BadRequest(msgs.UPDATE_ARRAY_REQUIRED));
     }
   }
 
   patch (id, data, params) {
     if (!data._rev || !data[this.id]) {
-      return Promise.reject(new errors.BadRequest(
-        'Missing document `_rev` or `_id` key.'
-      ));
+      return Promise.reject(new errors.BadRequest(msgs.ID_OR_REV_REQUIRED));
     }
 
-    return this._insert(data).catch(utils.errorHandler);
+    return this._insert(data)
+      .catch(utils.errorHandler);
   }
 
-  _remove (id, rev, params) {
+  _remove (data, params) {
     const db = this.db;
+    const id = data._id;
+    const rev = data._rev;
 
     if (!id || !rev) {
-      return Promise.reject(new errors.BadRequest(
-        'Missing document `_rev` or `_id` key.'
-      ));
+      return Promise.reject(new errors.BadRequest(msgs.ID_OR_REV_REQUIRED));
     }
 
     return new Promise((resolve, reject) => {
-      const callback = (err, body) => {
+      return db.destroy(id, rev, (err, body) => {
         if (err) {
           return reject(err);
         }
 
         resolve(body);
-      };
-
-      return db.destroy(id, rev, callback);
+      });
     });
   }
 
   remove (id, params) {
     return this._get(id)
-      .then(data => this._remove(data._id, data._rev))
+      .then(this._remove)
       .catch(utils.errorHandler);
   }
 
