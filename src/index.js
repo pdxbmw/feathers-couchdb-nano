@@ -21,9 +21,11 @@ class Service {
     }
 
     this.db = options.db;
+    this.name = options.name.toString().toLowerCase();
+
+    // Optional.
     this.events = options.events || [];
     this.id = options.id || '_id';
-    this.name = options.name.toLowerCase();
     this.paginate = options.paginate || {};
   }
 

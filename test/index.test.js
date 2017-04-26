@@ -1,32 +1,52 @@
 import { expect } from 'chai';
+import { createServer } from 'mock-couch';
 import nano from 'nano';
 import plugin from '../src';
 import server from './test-app';
 
+const DB_NAME = 'testdb';
+const DB_PORT = 5985;
+
 describe('feathers-couchdb-nano', () => {
-  const cxn = nano('http://localhost:5984');
+  const cxn = nano('http://localhost:${DB_PORT}');
   let db;
 
   before(() => {
-    return new Promise((resolve) => {
-      const callback = () => {
-        db = cxn.use('test');
-        resolve();
-      };
+    let couchdb = createServer();
 
-      cxn.db.create('test', callback);
+    couchdb.listen(DB_PORT);
+    couchdb.addDB(DB_NAME, [
+      {
+        _id: '1',
+        firstName: 'one name',
+        lastName: 'one lastname',
+        '$type': 'patients'
+      },
+      {
+        _id: '2',
+        firstName: 'second name',
+        lastName: 'second lastname',
+        '$type': 'patients'
+      }
+    ]);
+
+    return new Promise((resolve) => {
+      cxn.db.create(DB_NAME, () => {
+        db = cxn.use(DB_NAME);
+        resolve();
+      });
     });
   });
 
   after(() => {
-    cxn.db.destroy('test');
+    cxn.db.destroy(DB_NAME);
   });
 
   it('is CommonJS compatible', () => {
     expect(typeof require('../lib')).to.equal('function');
   });
 
-  describe('Initialization', () => {
+  describe('initialization', () => {
     describe('when missing options.db', () => {
       it('throws an error', () => {
         expect(plugin.bind(null)).to.throw('You must provide an Apache CouchDB Nano database');
@@ -39,8 +59,26 @@ describe('feathers-couchdb-nano', () => {
       });
     });
 
-    describe('CouchDB plugin example test', () => {
-      before(() => server);
+    describe('when missing options.id', () => {
+      it('sets the default to _id', () => {
+        expect(plugin({ db: db, name: 'tests' }).id).to.equal('_id');
+      });
     });
+
+    describe('when missing options.paginate', () => {
+      it('sets the default to an empty object', () => {
+        expect(plugin({ db: db, name: 'tests' }).paginate).to.deep.equal({});
+      });
+    });
+
+    describe('when missing options.events', () => {
+      it('sets the default to an empty array', () => {
+        expect(plugin({ db: db, name: 'tests' }).events).to.deep.equal([]);
+      });
+    });
+  });
+
+  describe('CouchDB plugin test app', () => {
+    before(() => server);
   });
 });
