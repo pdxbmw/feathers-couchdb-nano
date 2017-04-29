@@ -98,7 +98,6 @@ class Service {
   // Internal methods
 
   _find (params, getFilter = filter) {
-    const db = this.db;
     const { filters, query } = getFilter(params.query || {});
     const [design, view] = utils.getViewFromQuery(query.q);
 
@@ -131,20 +130,18 @@ class Service {
 
       // Use design doc.
       if (design && view) {
-        return db.view(design, view, options, callback);
+        return this.db.view(design, view, options, callback);
       }
 
       options.startkey = this.docType;
 
-      return db.list(options, callback);
+      return this.db.list(options, callback);
     });
   }
 
   _get (id, params) {
-    const db = this.db;
-
     return new Promise((resolve, reject) => {
-      return db.get(id, (err, body) => {
+      return this.db.get(id, (err, body) => {
         if (err) {
           return reject(err);
         }
@@ -155,10 +152,8 @@ class Service {
   }
 
   _insert (data) {
-    const db = this.db;
-
     return new Promise((resolve, reject) => {
-      return db.insert(data, (err, body) => {
+      return this.db.insert(data, (err, body) => {
         if (err) {
           return reject(err);
         }
@@ -169,7 +164,6 @@ class Service {
   }
 
   _remove (data, params) {
-    const db = this.db;
     const id = data._id;
     const rev = data._rev;
 
@@ -182,7 +176,7 @@ class Service {
         return reject(new errors.BadRequest(msgs.DOC_REV_REQUIRED));
       }
 
-      return db.destroy(id, rev, (err, body) => {
+      return this.db.destroy(id, rev, (err, body) => {
         if (err) {
           return reject(err);
         }
