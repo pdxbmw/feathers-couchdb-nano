@@ -11,26 +11,26 @@ const DEFAULT_LIMIT = 100;
 const DEFAULT_SKIP = 0;
 
 class Service {
-  constructor (options = {}) {
-    if (!options.connection || !options.connection.use) {
+  constructor ({ connection, db, name, id = '_id', paginate = {}, events = [], includeDocs = false } = {}) {
+    if (!connection || !connection.use) {
       throw new Error(msgs.NANO_INSTANCE_REQUIRED);
     }
 
-    if (!options.db) {
+    if (!db) {
       throw new Error(msgs.DB_NAME_REQUIRED);
     }
 
-    if (!options.name) {
+    if (!name) {
       throw new Error(msgs.DOC_NAME_REQUIRED);
     }
 
-    this.nano = options.connection;
-    this.db = this.nano.use(options.db);
-    this.events = options.events || [];
-    this.paginate = options.paginate || {};
-    this.docType = options.name.toString().toLowerCase();
-    this.idField = options.id || '_id';
-    this.includeDocs = !!(options.includeDocs || false);
+    this.nano = connection;
+    this.db = this.nano.use(db);
+    this.events = events;
+    this.paginate = paginate;
+    this.docType = name.toString().toLowerCase();
+    this.idField = id;
+    this.includeDocs = !!(includeDocs);
   }
 
   extend (obj) {
@@ -94,7 +94,7 @@ class Service {
 
   setup (app, path) {}
 
-  /////////////////////
+  /// //////////////////
   // Internal methods
 
   _find (params, getFilter = filter) {
@@ -186,7 +186,7 @@ class Service {
     });
   }
 
-  /////////////////////
+  /// //////////////////
   // Instance helpers
 
   // Construct doc id for doc filtering and type determination.
