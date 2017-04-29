@@ -12,8 +12,7 @@ const DEFAULT_SKIP = 0;
 
 class Service {
   constructor (options = {}) {
-
-    if (!options.connection || !options.connection.db) {
+    if (!options.connection || !options.connection.use) {
       throw new Error(msgs.NANO_INSTANCE_REQUIRED);
     }
 
@@ -95,7 +94,6 @@ class Service {
 
   setup (app, path) {}
 
-
   /////////////////////
   // Internal methods
 
@@ -107,7 +105,7 @@ class Service {
     const options = {
       include_docs: query.include_docs || this.includeDocs,
       limit: filters.$limit || (query.paginate || {}).default || DEFAULT_LIMIT,
-      skip: filters.$skip || DEFAULT_SKIP,
+      skip: filters.$skip || DEFAULT_SKIP
     };
 
     return new Promise((resolve, reject) => {
@@ -194,7 +192,6 @@ class Service {
     });
   }
 
-
   /////////////////////
   // Instance helpers
 
@@ -246,7 +243,7 @@ class Service {
         }
 
         resolve(body.uuids);
-      }
+      };
 
       nano.relax({
         method: 'GET',

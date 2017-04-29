@@ -11,7 +11,8 @@ export default new Promise((resolve) => {
 
   cxn.db.create(DB_NAME, () => {
     const options = {
-      db: cxn.use(DB_NAME),
+      connection: cxn,
+      db: DB_NAME,
       name: DOC_NAME,
       paginate: {
         default: 2,

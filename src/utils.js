@@ -23,5 +23,5 @@ export function getViewFromQuery (q) {
 }
 
 export function isPlainObject (o) {
-  return typeof o == 'object' && o.constructor == Object;
+  return typeof o === 'object' && o.constructor === Object;
 }
