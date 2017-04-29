@@ -6,7 +6,7 @@
 [![Dependency Status](https://img.shields.io/david/pdxbmw/feathers-couchdb-nano.svg?style=flat-square)](https://david-dm.org/pdxbmw/feathers-couchdb-nano)
 [![Download Status](https://img.shields.io/npm/dm/feathers-couchdb-nano.svg?style=flat-square)](https://www.npmjs.com/package/feathers-couchdb-nano)
 
-> Feathers CouchDB adapter service using Apache CouchDB Nano.
+> Feathers CouchDB adapter service using [Apache CouchDB Nano](https://github.com/apache/couchdb-nano).
 
 
 ## Installation
@@ -26,13 +26,14 @@ Please refer to the [Feathers database adapter documentation](http://docs.feathe
 
 ## Options
 
-| Name          | Type    | Description                                                   |
-| ------------- | ------- | --------------------------------------------------------------|
-| **db**        | Object  | Instance of CouchDB Nano database.                            |
-| **events**    | Array   | List of custom service events sent by this service.           |
-| **id**        | String  | Name of id field property (defaults to `_id`).                |
-| **name**      | String  | Name of CouchDB document type.                                |
-| **paginate**  | Object  | Pagination object containing `default` and `max` page size.   |
+| Name           | Type    | Description                                                   |
+| -------------- | ------- | --------------------------------------------------------------|
+| **connection** | Object  | Instance of CouchDB Nano connection.                          |
+| **db**         | String  | Name of CouchDB database.                                     |
+| **events**     | Array   | List of custom service events sent by this service.           |
+| **id**         | String  | Name of id field property (defaults to `_id`).                |
+| **name**       | String  | Name of CouchDB document type.                                |
+| **paginate**   | Object  | Pagination object containing `default` and `max` page size.   |
 
 ## Complete Example
 
@@ -47,14 +48,15 @@ const errorHandler = require('feathers-errors/handler');
 const plugin = require('feathers-couchdb-nano');
 const nano = require('nano');
 
-// Connect to existing database "demo"
-const db = nano('http://localhost:5984/demo');
+// Connect to CouchDB
+const connection = nano('http://localhost:5984');
 
 // Specify the plugin options
 const options = {
-  db: db,
+  connection: connection,
+  db: 'mydb',
   id: 'id',
-  name: 'messages',
+  name: 'mydoctype',
   paginate: {
     default: 10,
     max: 25
@@ -76,6 +78,12 @@ app.listen(3030);
 
 console.log('Feathers app started on 127.0.0.1:3030');
 ```
+
+## Todo
+
+* Create databases (unless existent)
+* Create and update design documents
+* Integrate [couchdb-bootstrap](https://github.com/eHealthAfrica/couchdb-bootstrap)?
 
 ## License
 

@@ -9,79 +9,33 @@ import * as utils from './utils';
 
 const DEFAULT_LIMIT = 100;
 const DEFAULT_SKIP = 0;
-const TYPE_KEY = '$type';
 
 class Service {
   constructor (options = {}) {
-    if (!options.db || !options.db.insert) {
-      throw new Error(msgs.DB_REQUIRED);
+
+    if (!options.connection || !options.connection.db) {
+      throw new Error(msgs.NANO_INSTANCE_REQUIRED);
+    }
+
+    if (!options.db) {
+      throw new Error(msgs.DB_NAME_REQUIRED);
     }
 
     if (!options.name) {
-      throw new Error(msgs.NAME_REQUIRED);
+      throw new Error(msgs.DOC_NAME_REQUIRED);
     }
 
-    this.db = options.db;
-    this.name = options.name.toString().toLowerCase();
+    this.nano = options.connection;
+    this.db = this.nano.use(options.db);
     this.events = options.events || [];
-    this.id = options.id || '_id';
     this.paginate = options.paginate || {};
+    this.docType = options.name.toString().toLowerCase();
+    this.idField = options.id || '_id';
+    this.includeDocs = !!(options.includeDocs || false);
   }
 
   extend (obj) {
     return Proto.extend(obj, this);
-  }
-
-  _find (params, getFilter = filter) {
-    const db = this.db;
-    const { filters, query } = getFilter(params.query || {});
-    const [design, view] = this._getDesignView(query.q);
-    const options = {
-      limit: filters.$limit || (query.paginate || {}).default || DEFAULT_LIMIT,
-      skip: filters.$skip || DEFAULT_SKIP
-    };
-
-    if (!design || !view) {
-      throw new Error(msgs.VIEW_REQUIRED);
-    }
-
-    return new Promise((resolve, reject) => {
-      return db.view(design, view, options, (err, body) => {
-        const rows = body.rows;
-        const n = rows.length;
-        let data = [];
-
-        if (err) {
-          return reject(err);
-        }
-
-        for (let i = 0; i < n; i++) {
-          const item = rows[i].key;
-          const sel = filters.$select;
-          let j = sel && Array.isArray(sel) && sel.length;
-          let tmp = {};
-
-          // Filtered select query.
-          if (j && j.length > 0) {
-            while (j--) {
-              tmp[sel[j]] = rows[i][sel[j]];
-            }
-          } else {
-            tmp = Object.assign(tmp, item);
-          }
-
-          data[i] = this._formatForFeathers(tmp);
-        }
-
-        resolve({
-          data,
-          /* jshint camelcase: false */
-          total: body.total_rows,
-          skip: body.offset,
-          limit: options.limit
-        });
-      });
-    });
   }
 
   find (params = {}) {
@@ -99,44 +53,31 @@ class Service {
       .catch(utils.errorHandler);
   }
 
-  _get (id, params) {
-    const db = this.db;
-
-    return new Promise((resolve, reject) => {
-      return db.get(id, (err, body) => {
-        let data = Object.assign({}, body);
-
-        if (err) {
-          return reject(err);
-        }
-
-        resolve(data);
-      });
-    });
-  }
-
   get (id, params) {
     return this._get(id)
-      .then(this._formatForFeathers)
+      .then(data => this._toFeathersFormat(data))
       .catch(utils.errorHandler);
   }
 
-  _insert (data) {
-    const db = this.db;
-
-    return new Promise((resolve, reject) => {
-      return db.insert(this._formatForCouch(data), (err, body) => {
-        if (err) {
-          return reject(err);
-        }
-
-        resolve(body);
-      });
-    });
+  create (data, params) {
+    return this._getUuid()
+      .then(uuid => this._addDocId(data, uuid))
+      .then(data => this._insert(this._toCouchFormat(data)))
+      .catch(utils.errorHandler);
   }
 
-  create (data, params) {
-    return this._insert(data)
+  patch (id, data, params) {
+    const rev = data._rev;
+
+    if (!id) {
+      return Promise.reject(new errors.BadRequest(msgs.DOC_ID_REQUIRED));
+    }
+
+    if (!rev) {
+      return Promise.reject(new errors.BadRequest(msgs.DOC_REV_REQUIRED));
+    }
+
+    return this._insert(this._toCouchFormat(data))
       .catch(utils.errorHandler);
   }
 
@@ -146,13 +87,87 @@ class Service {
     }
   }
 
-  patch (id, data, params) {
-    if (!data._rev || !data[this.id]) {
-      return Promise.reject(new errors.BadRequest(msgs.ID_OR_REV_REQUIRED));
-    }
-
-    return this._insert(data)
+  remove (id, params) {
+    return this._get(id)
+      .then(data => this._remove(data))
       .catch(utils.errorHandler);
+  }
+
+  setup (app, path) {}
+
+
+  /////////////////////
+  // Internal methods
+
+  _find (params, getFilter = filter) {
+    const db = this.db;
+    const { filters, query } = getFilter(params.query || {});
+    const [design, view] = utils.getViewFromQuery(query.q);
+
+    const options = {
+      include_docs: query.include_docs || this.includeDocs,
+      limit: filters.$limit || (query.paginate || {}).default || DEFAULT_LIMIT,
+      skip: filters.$skip || DEFAULT_SKIP,
+    };
+
+    return new Promise((resolve, reject) => {
+      const callback = (err, body) => {
+        const rows = body && body.rows;
+        let data = [];
+
+        if (err) {
+          return reject(err);
+        }
+
+        for (let i = 0, n = rows.length; i < n; i++) {
+          data[i] = this._toFeathersFormat(rows[i]);
+        }
+
+        resolve({
+          data,
+          limit: options.limit,
+          skip: body.offset,
+          total: data.length
+        });
+      };
+
+      // Use design doc.
+      if (design && view) {
+        return db.view(design, view, options, callback);
+      }
+
+      options.startkey = this.docType;
+
+      return db.list(options, callback);
+    });
+  }
+
+  _get (id, params) {
+    const db = this.db;
+
+    return new Promise((resolve, reject) => {
+      return db.get(id, (err, body) => {
+        if (err) {
+          return reject(err);
+        }
+
+        resolve(body);
+      });
+    });
+  }
+
+  _insert (data) {
+    const db = this.db;
+
+    return new Promise((resolve, reject) => {
+      return db.insert(data, (err, body) => {
+        if (err) {
+          return reject(err);
+        }
+
+        resolve(body);
+      });
+    });
   }
 
   _remove (data, params) {
@@ -160,11 +175,15 @@ class Service {
     const id = data._id;
     const rev = data._rev;
 
-    if (!id || !rev) {
-      return Promise.reject(new errors.BadRequest(msgs.ID_OR_REV_REQUIRED));
-    }
-
     return new Promise((resolve, reject) => {
+      if (!id) {
+        return reject(new errors.BadRequest(msgs.DOC_ID_REQUIRED));
+      }
+
+      if (!rev) {
+        return reject(new errors.BadRequest(msgs.DOC_REV_REQUIRED));
+      }
+
       return db.destroy(id, rev, (err, body) => {
         if (err) {
           return reject(err);
@@ -175,48 +194,66 @@ class Service {
     });
   }
 
-  remove (id, params) {
-    return this._get(id)
-      .then(this._remove)
-      .catch(utils.errorHandler);
+
+  /////////////////////
+  // Instance helpers
+
+  // Construct doc id for doc filtering and type determination.
+  _addDocId (data, uuid) {
+    data._id = `${this.docType}-${uuid}`;
+
+    return Promise.resolve(data);
   }
 
-  setup (app, path) {}
-
-  /// //////////////////
-  // Helpers
-
-  _getDesignView (q) {
-    const parts = q && q.split('/');
-    const len = parts && parts.length;
-
-    return [
-      len > 0 && parts[0],
-      len > 1 && parts[1]
-    ];
+  // Generate and return single doc uuid.
+  _getUuid () {
+    return Promise.resolve(this._uuids().then(ids => ids[0]));
   }
 
-  _formatForFeathers (obj) {
-    const id = obj._id;
+  // Format data for Feathers.
+  _toFeathersFormat (item) {
+    const obj = item.doc || item.value || (utils.isPlainObject(item.key) && item.key) || item;
+    let data = Object.assign({}, obj.data || obj);
 
-    delete obj.id;
-    delete obj._id;
-    delete obj[TYPE_KEY];
+    data._rev = obj._rev;
+    data[this.idField] = item._id || item.id;
 
-    obj[this.id] = id;
-
-    return obj;
+    return data;
   }
 
-  _formatForCouch (obj) {
-    const id = obj[this.id];
+  // Format data for CouchDB.
+  _toCouchFormat (item) {
+    const id = item[this.idField] || item._id || item.id;
+    let data = Object.assign({}, item);
 
-    delete obj.id;
+    delete data.id;
+    delete data._id;
 
-    obj[TYPE_KEY] = this.name;
-    obj._id = id;
+    return { data, _id: id, _rev: item._rev };
+  }
 
-    return obj;
+  // Get one or more CouchDB uuids.
+  //
+  // Note: Included in future versions nano library.
+  // https://github.com/apache/couchdb-nano/blob/master/lib/nano.js#L366
+  _uuids (count = 1) {
+    const nano = this.nano;
+
+    return new Promise((resolve, reject) => {
+      const callback = (err, body) => {
+        if (err) {
+          return reject(err);
+        }
+
+        resolve(body.uuids);
+      }
+
+      nano.relax({
+        method: 'GET',
+        path: '_uuids',
+        qs: { count: count }
+      }, callback);
+    });
   }
 }
 

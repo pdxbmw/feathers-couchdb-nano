@@ -14,3 +14,14 @@ export function errorHandler (error) {
 
   throw error;
 }
+
+export function getViewFromQuery (q) {
+  const parts = q && q.split('/');
+  const len = parts && parts.length;
+
+  return [len > 0 && parts[0], len > 1 && parts[1]];
+}
+
+export function isPlainObject (o) {
+  return typeof o == 'object' && o.constructor == Object;
+}
