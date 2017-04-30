@@ -26,14 +26,14 @@ Please refer to the [Feathers database adapter documentation](http://docs.feathe
 
 ## Options
 
-| Name           | Type    | Description                                                      |
-| -------------- | ------- | ---------------------------------------------------------------- |
-| **connection** | Object  | Instance of CouchDB Nano connection.                             |
-| **db**         | String  | Name of CouchDB database.                                        |
-| **events**     | Array   | List of custom service events sent by this service.              |
-| **id**         | String  | Name of id field property (defaults to `_id`).                   |
-| **name**       | String  | Name of CouchDB document type (for generating ids and querying). |
-| **paginate**   | Object  | Pagination object containing `default` and `max` page size.      |
+| Name              | Type     | Description                                                      |
+| ----------------- | -------- | ---------------------------------------------------------------- |
+| **connection**    | Object   | Instance of CouchDB Nano connection.                             |
+| **db**            | String   | Name of CouchDB database.                                        |
+| **events**        | Array    | List of custom service events sent by this service.              |
+| **id**            | String   | Name of id field property (defaults to `_id`).                   |
+| **name**          | String   | Name of CouchDB document type (for generating ids and querying). |
+| **paginate**      | Object   | Pagination object containing `default` and `max` page size.      |
 
 ## Complete Example
 

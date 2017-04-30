@@ -86,12 +86,6 @@ describe('feathers-couchdb-nano', () => {
       });
     });
 
-    describe('when missing options.includeDocs', () => {
-      it('sets the default to false', () => {
-        expect(plugin(options).includeDocs).to.equal(false);
-      });
-    });
-
     describe('when options.connection provided', () => {
       it('should be equal to nano', () => {
         expect(plugin(options).nano).to.deep.equal(cxn);

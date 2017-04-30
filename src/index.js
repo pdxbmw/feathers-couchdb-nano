@@ -11,7 +11,7 @@ const DEFAULT_LIMIT = 100;
 const DEFAULT_SKIP = 0;
 
 class Service {
-  constructor ({ connection, db, name, id = '_id', paginate = {}, events = [], includeDocs = false } = {}) {
+  constructor ({ connection, db, name, id = '_id', paginate = {}, events = [] } = {}) {
     if (!connection || !connection.use) {
       throw new Error(msgs.NANO_INSTANCE_REQUIRED);
     }
@@ -30,7 +30,6 @@ class Service {
     this.paginate = paginate;
     this.docType = name.toString().toLowerCase();
     this.idField = id;
-    this.includeDocs = !!(includeDocs);
   }
 
   extend (obj) {
@@ -94,99 +93,81 @@ class Service {
 
   setup (app, path) {}
 
-  /// //////////////////
-  // Internal methods
+  // Private methods
+
+  _dbCmd (method, ...args) {
+    return new Promise((resolve, reject) => {
+      return this.db[method](...args, (err, body) => {
+        if (err) {
+          return reject(err);
+        }
+
+        resolve(body);
+      });
+    });
+  }
 
   _find (params, getFilter = filter) {
     const { filters, query } = getFilter(params.query || {});
     const [design, view] = utils.getViewFromQuery(query.q);
 
     const options = {
-      include_docs: query.include_docs || this.includeDocs,
+      ...query,
       limit: filters.$limit || (query.paginate || {}).default || DEFAULT_LIMIT,
       skip: filters.$skip || DEFAULT_SKIP
     };
 
-    return new Promise((resolve, reject) => {
-      const callback = (err, body) => {
-        const rows = body && body.rows;
-        let data = [];
+    const paginate = (result) => {
+      const rows = result.rows;
+      let data = [];
 
-        if (err) {
-          return reject(err);
-        }
-
-        for (let i = 0, n = rows.length; i < n; i++) {
-          data[i] = this._toFeathersFormat(rows[i]);
-        }
-
-        resolve({
-          data,
-          limit: options.limit,
-          skip: body.offset,
-          total: data.length
-        });
-      };
-
-      // Use design doc.
-      if (design && view) {
-        return this.db.view(design, view, options, callback);
+      for (let item of rows) {
+        data.push(this._toFeathersFormat(item));
       }
 
-      options.startkey = this.docType;
+      return Promise.resolve({
+        data,
+        limit: options.limit,
+        skip: result.offset,
+        total: data.length
+      });
+    };
 
-      return this.db.list(options, callback);
-    });
+    let result;
+
+    // Use design doc.
+    if (design && view) {
+      result = this._dbCmd('view', design, view, options);
+    } else {
+      result = this._dbCmd('list', { ...options, startkey: this.docType });
+    }
+
+    return result.then(paginate);
   }
 
   _get (id, params) {
-    return new Promise((resolve, reject) => {
-      return this.db.get(id, (err, body) => {
-        if (err) {
-          return reject(err);
-        }
-
-        resolve(body);
-      });
-    });
+    return this._dbCmd('get', id);
   }
 
   _insert (data) {
-    return new Promise((resolve, reject) => {
-      return this.db.insert(data, (err, body) => {
-        if (err) {
-          return reject(err);
-        }
-
-        resolve(body);
-      });
-    });
+    return this._dbCmd('insert', data);
   }
 
   _remove (data, params) {
     const id = data._id;
     const rev = data._rev;
 
-    return new Promise((resolve, reject) => {
-      if (!id) {
-        return reject(new errors.BadRequest(msgs.DOC_ID_REQUIRED));
-      }
+    if (!id) {
+      return Promise.reject(new errors.BadRequest(msgs.DOC_ID_REQUIRED));
+    }
 
-      if (!rev) {
-        return reject(new errors.BadRequest(msgs.DOC_REV_REQUIRED));
-      }
+    if (!rev) {
+      return Promise.reject(new errors.BadRequest(msgs.DOC_REV_REQUIRED));
+    }
 
-      return this.db.destroy(id, rev, (err, body) => {
-        if (err) {
-          return reject(err);
-        }
-
-        resolve(body);
-      });
-    });
+    return this._dbCmd('destroy', id, rev);
   }
 
-  /// //////////////////
   // Instance helpers
 
   // Construct doc id for doc filtering and type determination.
