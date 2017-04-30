@@ -102,7 +102,7 @@ class Service {
     const { filters, query } = getFilter(params.query || {});
     const [design, view] = utils.getViewFromQuery(query.q);
 
-    const options = {
+    const opts = {
       ...query,
       limit: filters.$limit || (query.paginate || {}).default || DEFAULT_LIMIT,
       skip: filters.$skip || DEFAULT_SKIP
@@ -113,7 +113,7 @@ class Service {
 
       return Promise.resolve({
         data,
-        limit: options.limit,
+        limit: opts.limit,
         skip: o.offset,
         total: data.length
       });
@@ -121,13 +121,10 @@ class Service {
 
     // Use design doc.
     if (design && view) {
-      return this._dbCmd('view', design, view, options).then(pagify);
+      return this._dbCmd('view', design, view, opts).then(pagify);
     }
 
-    return this._dbCmd('list', {
-      ...options,
-      startkey: this.docType
-    })
+    return this._dbCmd('list', { ...opts, startkey: this.docType })
       .then(pagify);
   }
 
