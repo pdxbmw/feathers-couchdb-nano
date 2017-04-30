@@ -53,29 +53,20 @@ class Service {
 
   get (id, params) {
     return this._get(id)
-      .then(data => this._toFeathersFormat(data))
+      .then(data => this._getFeathered(data))
       .catch(utils.errorHandler);
   }
 
   create (data, params) {
     return this._getUuid()
       .then(uuid => this._addDocId(data, uuid))
-      .then(data => this._insert(this._toCouchFormat(data)))
+      .then(data => this._insert(data))
       .catch(utils.errorHandler);
   }
 
   patch (id, data, params) {
-    const rev = data._rev;
-
-    if (!id) {
-      return Promise.reject(new errors.BadRequest(msgs.DOC_ID_REQUIRED));
-    }
-
-    if (!rev) {
-      return Promise.reject(new errors.BadRequest(msgs.DOC_REV_REQUIRED));
-    }
-
-    return this._insert(this._toCouchFormat(data))
+    return utils.checkEditable(data, id)
+      .then((data, id, rev) => this._insert(data))
       .catch(utils.errorHandler);
   }
 
@@ -117,32 +108,27 @@ class Service {
       skip: filters.$skip || DEFAULT_SKIP
     };
 
-    const paginate = (result) => {
-      const rows = result.rows;
-      let data = [];
-
-      for (let item of rows) {
-        data.push(this._toFeathersFormat(item));
-      }
+    const pagify = (o) => {
+      let data = o.rows.map(i => this._getFeathered(i));
 
       return Promise.resolve({
         data,
         limit: options.limit,
-        skip: result.offset,
+        skip: o.offset,
         total: data.length
       });
     };
 
-    let result;
-
     // Use design doc.
     if (design && view) {
-      result = this._dbCmd('view', design, view, options);
-    } else {
-      result = this._dbCmd('list', { ...options, startkey: this.docType });
+      return this._dbCmd('view', design, view, options).then(pagify);
     }
 
-    return result.then(paginate);
+    return this._dbCmd('list', {
+      ...options,
+      startkey: this.docType
+    })
+      .then(pagify);
   }
 
   _get (id, params) {
@@ -150,22 +136,12 @@ class Service {
   }
 
   _insert (data) {
-    return this._dbCmd('insert', data);
+    return this._dbCmd('insert', this._getCouched(data));
   }
 
   _remove (data, params) {
-    const id = data._id;
-    const rev = data._rev;
-
-    if (!id) {
-      return Promise.reject(new errors.BadRequest(msgs.DOC_ID_REQUIRED));
-    }
-
-    if (!rev) {
-      return Promise.reject(new errors.BadRequest(msgs.DOC_REV_REQUIRED));
-    }
-
-    return this._dbCmd('destroy', id, rev);
+    return utils.checkEditable(data)
+      .then((data, id, rev) => this._dbCmd('destroy', id, rev));
   }
 
   // Instance helpers
@@ -183,7 +159,7 @@ class Service {
   }
 
   // Format data for Feathers.
-  _toFeathersFormat (item) {
+  _getFeathered (item) {
     const obj = item.doc || item.value || (utils.isPlainObject(item.key) && item.key) || item;
     let data = Object.assign({}, obj.data || obj);
 
@@ -194,7 +170,7 @@ class Service {
   }
 
   // Format data for CouchDB.
-  _toCouchFormat (item) {
+  _getCouched (item) {
     const id = item[this.idField] || item._id || item.id;
     let data = Object.assign({}, item);
 
@@ -209,8 +185,6 @@ class Service {
   // Note: Included in future versions nano library.
   // https://github.com/apache/couchdb-nano/blob/master/lib/nano.js#L366
   _uuids (count = 1) {
-    const nano = this.nano;
-
     return new Promise((resolve, reject) => {
       const callback = (err, body) => {
         if (err) {
@@ -220,7 +194,7 @@ class Service {
         resolve(body.uuids);
       };
 
-      nano.relax({
+      this.nano.relax({
         method: 'GET',
         path: '_uuids',
         qs: { count: count }
